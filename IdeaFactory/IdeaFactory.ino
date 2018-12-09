@@ -1,3 +1,4 @@
+#include <arduino.h>
 #include <SPI.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -15,12 +16,15 @@
 
 #define RELAY_PIN (5)
 
+#define US_TO_TICK(us) (us*5)
+#define MS_TO_TICK(ms) (ms*5000)
+
 //const char* ssid = "IdeaFactory_Machining";
 //const char* password = "asdfghjkl"; 
 //String mqtt_ip = "192.168.0.45";
 const char* ssid = "SK_WiFiGIGA2354";
 const char* password = "1801002168";
-String mqtt_ip = "192.168.35.194":
+String mqtt_ip = "192.168.35.194";
 String web_server = "http://" + mqtt_ip + ":8000/device/";
 boolean tmpSuccess[2] = {false, false};
 String res;
@@ -48,7 +52,9 @@ void sendData(String message) {
 void readCard() {
   uint8_t success;
   success = nfc.inListPassiveTarget(PN532_ISO14443B);
-  
+
+  client.publish("devices", "start read");
+
   boolean tmp1 = tmpSuccess[0];
   boolean tmp2 = tmpSuccess[1];
 
@@ -110,12 +116,45 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  if (!client.loop()) {
-    client.connect("ESP8266Client");
+  client.loop();
+
+  uint8_t success;
+  success = nfc.inListPassiveTarget(PN532_ISO14443B);
+
+  boolean tmp1 = tmpSuccess[0];
+  boolean tmp2 = tmpSuccess[1];
+
+  if (tmp1 == false && tmp2 == false && success == true) {
+    uint8_t apdu[] = {
+      0x00, 0xB2, 0x01, 0x0C, 0xC8
+    };
+    uint8_t apduLength = sizeof(apdu);
+    uint8_t response[200];
+    memset(response, 0, sizeof(response));
+    uint8_t responseLength = sizeof(response);
+
+    res = nfc.inDataExchange(apdu, apduLength, response, &responseLength);
+    if (responseLength > 10) {
+      res = (char*)response;
+
+      String tmp_res(res);
+      String msg = deviceId + '/' + tmp_res;
+
+      client.publish("device/rfid", msg.c_str());
+    }
+  }
+  
+  tmp1 = tmp2;
+  tmp2 = success;
+  tmpSuccess[0] = tmp1;
+  tmpSuccess[1] = tmp2;
+
+  if (tmpSuccess[0] == false && tmpSuccess[1] == false) {
+    // 릴레이 오프
+    digitalWrite(RELAY_PIN, LOW);
   }
 
-  readCard();
-  delay(500);
+  delay(50);
 }
 
 void reconnect() {
@@ -139,14 +178,10 @@ void callback(String topic, byte* message, unsigned int length) {
 
   String onMsg = deviceId + "1";
   String offMsg = deviceId + "0";
-
-  client.publish("devices", messageTemp.c_str());
-  
+ 
   if (messageTemp == onMsg){
-    client.publish("devices", "on");
     digitalWrite(RELAY_PIN, HIGH);
   } else if (messageTemp == offMsg){
-    client.publish("devices", "off");
     digitalWrite(RELAY_PIN, LOW);
   }
 }
