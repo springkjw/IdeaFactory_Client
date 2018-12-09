@@ -15,9 +15,12 @@
 
 #define RELAY_PIN (5)
 
-const char* ssid = "IdeaFactory_Machining";
-const char* password = "asdfghjkl"; 
-String mqtt_ip = "192.168.0.45";
+//const char* ssid = "IdeaFactory_Machining";
+//const char* password = "asdfghjkl"; 
+//String mqtt_ip = "192.168.0.45";
+const char* ssid = "SK_WiFiGIGA2354";
+const char* password = "1801002168";
+String mqtt_ip = "192.168.35.194":
 String web_server = "http://" + mqtt_ip + ":8000/device/";
 boolean tmpSuccess[2] = {false, false};
 String res;
