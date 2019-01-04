@@ -1,4 +1,4 @@
-#include <SPI.h>
+ #include <SPI.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <PubSubClient.h>
@@ -15,12 +15,9 @@
 
 #define RELAY_PIN (5)
 
-//const char* ssid = "IdeaFactory_Machining";
-//const char* password = "asdfghjkl"; 
-//String mqtt_ip = "192.168.0.45";
-const char* ssid = "SK_WiFiGIGA2354";
-const char* password = "1801002168";
-String mqtt_ip = "192.168.35.194":
+const char* ssid = "IdeaFactory_Machining";
+const char* password = "asdfghjkl"; 
+String mqtt_ip = "192.168.0.55";
 String web_server = "http://" + mqtt_ip + ":8000/device/";
 boolean tmpSuccess[2] = {false, false};
 String res;
@@ -60,15 +57,19 @@ void readCard() {
         0x00, 0xB2, 0x01, 0x0C, 0xC8
       };
       uint8_t apduLength = sizeof(apdu);
-      uint8_t response[200];
+      uint8_t response[200]; 
       memset(response, 0, sizeof(response));
       uint8_t responseLength = sizeof(response);
   
       res = nfc.inDataExchange(apdu, apduLength, response, &responseLength);
       if (responseLength > 10) {
         res = (char*)response;
-
         sendData(res);
+      } else {
+        delay(100);
+        tmpSuccess[0] = false;
+        tmpSuccess[1] = false;
+        readCard();
       }
     }
   }
@@ -111,18 +112,18 @@ void loop() {
     reconnect();
   }
   if (!client.loop()) {
-    client.connect("ESP8266Client");
+    client.connect(deviceId.c_str());
   }
 
   readCard();
-  delay(500);
+  delay(200);
 }
 
 void reconnect() {
   const char* d = deviceId.c_str();
   
   while (!client.connected()) {
-    if (client.connect("ESP8266Client")) {      
+    if (client.connect(deviceId.c_str())) {      
       client.subscribe("device");
     } else {
       delay(3000);
@@ -139,6 +140,7 @@ void callback(String topic, byte* message, unsigned int length) {
 
   String onMsg = deviceId + "1";
   String offMsg = deviceId + "0";
+  String reMsg = deviceId + "2";
 
   client.publish("devices", messageTemp.c_str());
   
@@ -148,5 +150,12 @@ void callback(String topic, byte* message, unsigned int length) {
   } else if (messageTemp == offMsg){
     client.publish("devices", "off");
     digitalWrite(RELAY_PIN, LOW);
+  } else if (messageTemp == reMsg){
+    client.publish("devices", "off");
+    digitalWrite(RELAY_PIN, LOW);
+    delay(100);
+    tmpSuccess[0] = false;
+    tmpSuccess[1] = false;
+    readCard();
   }
 }
